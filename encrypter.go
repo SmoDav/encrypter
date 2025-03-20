@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -16,6 +17,17 @@ type Encrypter struct {
 	key *[]byte
 }
 
+// NewEncrypter creates a new Encrypter instance with the provided key.
+// The key should be a pointer to a byte slice that will be used for encryption.
+//
+// Parameters:
+//
+//	key - a pointer to a byte slice that represents the encryption key.
+//
+// Returns:
+//
+//	A pointer to an Encrypter instance initialized with the provided key.
+//	- error: An error if the decryption process fails at any step.
 func NewEncrypter(key *[]byte) *Encrypter {
 	return &Encrypter{
 		key: key,
@@ -43,6 +55,17 @@ func (e *Encrypter) hashMatches(iv, value, expected string) (bool, error) {
 	return true, nil
 }
 
+// Decrypt decrypts the given base64 encoded string using the Encrypter's key.
+// It first decodes the payload, checks the hash for integrity, and then
+// decrypts the value using AES in CBC mode. The decrypted value is then
+// unpadded and returned as a byte slice.
+//
+// Parameters:
+//   - source: The base64 encoded string to be decrypted.
+//
+// Returns:
+//   - []byte: The decrypted byte slice.
+//   - error: An error if the decryption process fails at any step.
 func (e *Encrypter) Decrypt(source string) ([]byte, error) {
 	payload, err := e.decodePayload(source)
 	if err != nil {
@@ -86,6 +109,20 @@ func (e *Encrypter) Decrypt(source string) ([]byte, error) {
 	return e.unpadInput(value, block.BlockSize())
 }
 
+// Encrypt encrypts the given source byte slice using AES encryption in CBC mode.
+// It first pads the input to ensure it is a multiple of the block size, then
+// generates a new AES cipher block using the provided key. An initialization
+// vector (IV) is created and filled with random data. The source data is then
+// encrypted using the cipher block and IV. The resulting ciphertext and IV are
+// encoded and returned as a string. If any error occurs during the process, it
+// is returned.
+//
+// Parameters:
+//   - source: The byte slice to be encrypted.
+//
+// Returns:
+//   - A string containing the encoded IV and ciphertext.
+//   - An error if any issue occurs during encryption.
 func (e *Encrypter) Encrypt(source []byte) (string, error) {
 	source = e.padInput(source)
 	block, err := aes.NewCipher(*e.key)
@@ -103,4 +140,21 @@ func (e *Encrypter) Encrypt(source []byte) (string, error) {
 	mode.CryptBlocks(ciphertext, source)
 
 	return e.encodePayload(iv, ciphertext)
+}
+
+// Sha1 generates a SHA-1 HMAC for the given value using the Encrypter's key.
+// It returns the resulting HMAC as a hexadecimal string.
+//
+// Parameters:
+//
+//	value - The input data to be hashed.
+//
+// Returns:
+//
+//	A hexadecimal string representation of the SHA-1 HMAC.
+func (e *Encrypter) Sha1(value []byte) string {
+	mac := hmac.New(sha1.New, *e.key)
+	mac.Write(value)
+
+	return hex.EncodeToString(mac.Sum(nil))
 }

@@ -2,6 +2,7 @@ package encrypter
 
 import (
 	"crypto/aes"
+	"crypto/hmac"
 	"encoding/base64"
 	"encoding/hex"
 	"strings"
@@ -153,6 +154,14 @@ func TestEncryption(t *testing.T) {
 
 		if string(un) != "testing111111115" {
 			t.Errorf("expected original string but got %s", string(un))
+		}
+	})
+
+	t.Run("generates a valid sha1 hash", func(t *testing.T) {
+		val := e.Sha1([]byte("testing"))
+
+		if !hmac.Equal([]byte(val), []byte("67696b8f5f6211edbec4ae7110f4a365e9ea976f")) {
+			t.Errorf("expected valid sha1 hash, but got %s", val)
 		}
 	})
 }
